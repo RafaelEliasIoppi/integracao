@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Controle do Pipeline</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin-right: 10px; }
+    #log { margin-top: 20px; white-space: pre-wrap; background: #f4f4f4; padding: 10px; border-radius: 5px; }
+    #files { margin-top: 20px; }
+    a { display: block; margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <h1>Data Integration App</h1>
+  <p>Controle o pipeline e baixe os arquivos gerados.</p>
+
+  <button onclick="runPipeline()">Executar Pipeline</button>
+  <button onclick="listFiles()">Listar Arquivos Exportados</button>
+
+  <div id="log"></div>
+  <div id="files"></div>
+
+  <script>
+    const API_BASE = "https://friendly-funicular-wr75744pjq99h949q-3000.app.github.dev";
+
+    async function runPipeline() {
+      document.getElementById("log").textContent = "Executando pipeline...";
+      try {
+        const res = await fetch(`${API_BASE}/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+        document.getElementById("log").textContent = JSON.stringify(data, null, 2);
+        listFiles(); // atualiza lista após execução
+      } catch (err) {
+        document.getElementById("log").textContent = "Erro: " + err.message;
+      }
+    }
+
+    async function listFiles() {
+      try {
+        const res = await fetch(`${API_BASE}/files`);
+        const files = await res.json();
+        const container = document.getElementById("files");
+        container.innerHTML = "<h3>Arquivos Exportados:</h3>";
+        files.forEach(f => {
+          const link = document.createElement("a");
+          link.href = `${API_BASE}/files/${f}`; // 👈 corrigido
+          link.textContent = "📂 " + f;
+          link.download = f;
+          container.appendChild(link);
+        });
+      } catch (err) {
+        document.getElementById("files").textContent = "Erro ao listar arquivos: " + err.message;
+      }
+    }
+  </script>
+</body>
+</html>

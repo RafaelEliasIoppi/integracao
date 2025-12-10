@@ -4,11 +4,18 @@ import { getConnectorByType, getExporterByType } from "../utils/config";
 import { logger } from "../utils/logger";
 
 export async function runPipeline(cfg: PipelineConfig): Promise<void> {
-  const connector: Connector = getConnectorByType(cfg.source.type);
-  await connector.init(cfg.source.config);
+  // 👇 Suporte a múltiplos sources
+  const sources = (cfg as any).sources ?? [cfg.source];
+  let raw: RecordData[] = [];
 
-  logger.info(`Extraindo dados com o conector: ${connector.name}`);
-  const raw: RecordData[] = await connector.extract(cfg.source.params);
+  for (const src of sources) {
+    const connector: Connector = getConnectorByType(src.type);
+    await connector.init(src.config);
+
+    logger.info(`Extraindo dados com o conector: ${connector.name}`);
+    const data: RecordData[] = await connector.extract(src.params);
+    raw = raw.concat(data);
+  }
 
   logger.info(`Transformando ${raw.length} registros`);
   const transformed = applyTransform(raw, cfg.transform);

@@ -5,24 +5,45 @@
   <title>Controle do Pipeline</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 2rem; }
-    button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin-right: 10px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
     #log { margin-top: 20px; white-space: pre-wrap; background: #f4f4f4; padding: 10px; border-radius: 5px; }
     #files { margin-top: 20px; }
+    #preview {
+    margin-top: 20px;
+    background: #1e1e1e;
+    color: #dcdcdc;
+    padding: 15px;
+    border-radius: 5px;
+    font-family: monospace;
+    white-space: pre;   /* 👈 mantém cada linha embaixo da outra */
+    overflow-x: auto;
+  }
+
+    #tablePreview { margin-top: 20px; border-collapse: collapse; width: 100%; }
+    #tablePreview th, #tablePreview td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    #tablePreview th { background: #f0f0f0; }
     a { display: block; margin: 5px 0; }
+    .key { color: #9cdcfe; }
+    .string { color: #ce9178; }
+    .number { color: #b5cea8; }
+    .boolean { color: #569cd6; }
+    .null { color: #808080; }
   </style>
 </head>
 <body>
   <h1>Data Integration App</h1>
-  <p>Controle o pipeline e baixe os arquivos gerados.</p>
+  <p>Controle o pipeline, baixe e visualize os arquivos gerados.</p>
 
   <button onclick="runPipeline()">Executar Pipeline</button>
   <button onclick="listFiles()">Listar Arquivos Exportados</button>
 
   <div id="log"></div>
   <div id="files"></div>
+  <div id="preview"></div>
+  <table id="tablePreview"></table>
 
   <script>
-    const API_BASE = "https://friendly-funicular-wr75744pjq99h949q-3000.app.github.dev";
+    const API_BASE = window.location.origin;
 
     async function runPipeline() {
       document.getElementById("log").textContent = "Executando pipeline...";
@@ -33,7 +54,7 @@
         });
         const data = await res.json();
         document.getElementById("log").textContent = JSON.stringify(data, null, 2);
-        listFiles(); // atualiza lista após execução
+        listFiles();
       } catch (err) {
         document.getElementById("log").textContent = "Erro: " + err.message;
       }
@@ -47,14 +68,78 @@
         container.innerHTML = "<h3>Arquivos Exportados:</h3>";
         files.forEach(f => {
           const link = document.createElement("a");
-          link.href = `${API_BASE}/files/${f}`; // 👈 corrigido
+          link.href = `${API_BASE}/files/${f}`;
           link.textContent = "📂 " + f;
           link.download = f;
           container.appendChild(link);
+
+          if (f.endsWith(".json")) {
+            const viewBtn = document.createElement("button");
+            viewBtn.textContent = "👀 Visualizar JSON: " + f;
+            viewBtn.onclick = () => previewJSON(f);
+            container.appendChild(viewBtn);
+          }
+
+          if (f.endsWith(".csv")) {
+            const viewBtn = document.createElement("button");
+            viewBtn.textContent = "📊 Visualizar CSV: " + f;
+            viewBtn.onclick = () => previewCSV(f);
+            container.appendChild(viewBtn);
+          }
         });
       } catch (err) {
         document.getElementById("files").textContent = "Erro ao listar arquivos: " + err.message;
       }
+    }
+
+    async function previewJSON(filename) {
+  try {
+    const res = await fetch(`${API_BASE}/files/${filename}`);
+    const text = await res.text();
+    const json = JSON.parse(text);
+
+    // 👇 gera string com indentação de 2 espaços
+    const formatted = JSON.stringify(json, null, 2);
+
+    // exibe cada linha embaixo da outra
+    document.getElementById("preview").textContent = formatted;
+  } catch (err) {
+    document.getElementById("preview").textContent = "Erro ao carregar JSON: " + err.message;
+  }
+}
+
+
+    async function previewCSV(filename) {
+      try {
+        const res = await fetch(`${API_BASE}/files/${filename}`);
+        const text = await res.text();
+        const rows = text.trim().split("\n").map(r => r.split(","));
+        const table = document.getElementById("tablePreview");
+        table.innerHTML = "";
+        rows.forEach((row, i) => {
+          const tr = document.createElement("tr");
+          row.forEach(cell => {
+            const td = document.createElement(i === 0 ? "th" : "td");
+            td.textContent = cell.replace(/"/g, "");
+            tr.appendChild(td);
+          });
+          table.appendChild(tr);
+        });
+      } catch (err) {
+        document.getElementById("tablePreview").textContent = "Erro ao carregar CSV: " + err.message;
+      }
+    }
+
+    function syntaxHighlight(json) {
+      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+        let cls = "number";
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) cls = "key";
+          else cls = "string";
+        } else if (/true|false/.test(match)) cls = "boolean";
+        else if (/null/.test(match)) cls = "null";
+        return `<span class="${cls}">${match}</span>`;
+      });
     }
   </script>
 </body>

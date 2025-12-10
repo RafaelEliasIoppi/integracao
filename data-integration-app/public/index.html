@@ -6,7 +6,7 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 2rem; }
     button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
-    input { padding: 8px; width: 400px; margin-right: 10px; }
+    input, select { padding: 8px; width: 420px; margin: 5px 0; }
     #log { margin-top: 20px; white-space: pre-wrap; background: #f4f4f4; padding: 10px; border-radius: 5px; }
     #files { margin-top: 20px; }
     #preview { margin-top: 20px; background: #1e1e1e; color: #dcdcdc; padding: 15px; border-radius: 5px; font-family: monospace; white-space: pre; overflow-x: auto; }
@@ -18,13 +18,29 @@
 </head>
 <body>
   <h1>Data Integration App</h1>
-  <p>Digite o link da API e controle o pipeline:</p>
+  <p>Configure e rode o pipeline pelo navegador.</p>
 
-  <!-- Campo para inserir a URL da API -->
-  <input id="apiUrl" type="text" placeholder="https://meu-servidor:3000" value="http://localhost:3000" />
-  <button onclick="setApiBase()">Usar API</button>
+  <!-- URL do servidor -->
+  <label>Servidor do pipeline:</label><br>
+  <input id="serverUrl" type="text" 
+       value="https://friendly-funicular-wr75744pjq99h949q-3000.app.github.dev" />
+
 
   <br><br>
+  <!-- Pré-lista de APIs públicas -->
+  <label>Fonte de dados (API pública):</label><br>
+  <select id="apiExamples" onchange="setApiFromList()">
+    <option value="">-- Selecione uma API de exemplo --</option>
+    <option value="https://jsonplaceholder.typicode.com/users">JSONPlaceholder - Usuários</option>
+    <option value="https://dog.ceo/api/breeds/image/random">Dog CEO - Imagem de cachorro</option>
+    <option value="https://catfact.ninja/fact">Cat Facts - Fato sobre gatos</option>
+    <option value="https://pokeapi.co/api/v2/pokemon/ditto">PokeAPI - Pokémon Ditto</option>
+    <option value="https://api.open-meteo.com/v1/forecast?latitude=-30.0&longitude=-51.2&hourly=temperature_2m">Open Meteo - Porto Alegre</option>
+    <option value="https://api.adviceslip.com/advice">Advice Slip - Conselho aleatório</option>
+  </select>
+  <input id="apiUrl" type="text" placeholder="URL da fonte de dados" />
+  <br><br>
+
   <button onclick="runPipeline()">Executar Pipeline</button>
   <button onclick="listFiles()">Listar Arquivos Exportados</button>
 
@@ -34,17 +50,42 @@
   <table id="tablePreview"></table>
 
   <script>
-    let API_BASE = document.getElementById("apiUrl").value;
+    let SERVER_BASE = document.getElementById("serverUrl").value;
 
-    function setApiBase() {
-      API_BASE = document.getElementById("apiUrl").value;
-      document.getElementById("log").textContent = "API configurada para: " + API_BASE;
+    function setServerBase() {
+      SERVER_BASE = document.getElementById("serverUrl").value;
+      document.getElementById("log").textContent = "Servidor configurado para: " + SERVER_BASE;
+    }
+
+    function setApiFromList() {
+      const selected = document.getElementById("apiExamples").value;
+      if (selected) {
+        document.getElementById("apiUrl").value = selected;
+        document.getElementById("log").textContent = "Fonte de dados configurada para: " + selected;
+      }
     }
 
     async function runPipeline() {
       document.getElementById("log").textContent = "Executando pipeline...";
       try {
-        const res = await fetch(`${API_BASE}/run`, { method: "POST", headers: { "Content-Type": "application/json" } });
+        const sourceUrl = document.getElementById("apiUrl").value;
+
+        // 👇 monta config genérico
+        const config = {
+          sources: [{ type: "http-json", params: { url: sourceUrl } }],
+          transform: { mapping: {} }, // vazio = sem transformação
+          destinations: [
+            { type: "json", params: { path: "out/data.json" } },
+            { type: "csv", params: { path: "out/data.csv" } }
+          ]
+        };
+
+        const res = await fetch(`${SERVER_BASE}/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ config })
+        });
+
         const data = await res.json();
         document.getElementById("log").textContent = JSON.stringify(data, null, 2);
         listFiles();
@@ -55,13 +96,13 @@
 
     async function listFiles() {
       try {
-        const res = await fetch(`${API_BASE}/files`);
+        const res = await fetch(`${SERVER_BASE}/files`);
         const files = await res.json();
         const container = document.getElementById("files");
         container.innerHTML = "<h3>Arquivos Exportados:</h3>";
         files.forEach(f => {
           const link = document.createElement("a");
-          link.href = `${API_BASE}/files/${f}`;
+          link.href = `${SERVER_BASE}/files/${f}`;
           link.textContent = "📂 " + f;
           link.download = f;
           container.appendChild(link);
@@ -87,7 +128,7 @@
 
     async function previewJSON(filename) {
       try {
-        const res = await fetch(`${API_BASE}/files/${filename}`);
+        const res = await fetch(`${SERVER_BASE}/files/${filename}`);
         const text = await res.text();
         const json = JSON.parse(text);
         document.getElementById("preview").textContent = JSON.stringify(json, null, 2);
@@ -98,7 +139,7 @@
 
     async function previewCSV(filename) {
       try {
-        const res = await fetch(`${API_BASE}/files/${filename}`);
+        const res = await fetch(`${SERVER_BASE}/files/${filename}`);
         const text = await res.text();
         const rows = text.trim().split("\n").map(r => r.split(","));
         const table = document.getElementById("tablePreview");

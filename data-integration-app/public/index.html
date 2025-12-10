@@ -6,34 +6,25 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 2rem; }
     button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+    input { padding: 8px; width: 400px; margin-right: 10px; }
     #log { margin-top: 20px; white-space: pre-wrap; background: #f4f4f4; padding: 10px; border-radius: 5px; }
     #files { margin-top: 20px; }
-    #preview {
-    margin-top: 20px;
-    background: #1e1e1e;
-    color: #dcdcdc;
-    padding: 15px;
-    border-radius: 5px;
-    font-family: monospace;
-    white-space: pre;   /* 👈 mantém cada linha embaixo da outra */
-    overflow-x: auto;
-  }
-
+    #preview { margin-top: 20px; background: #1e1e1e; color: #dcdcdc; padding: 15px; border-radius: 5px; font-family: monospace; white-space: pre; overflow-x: auto; }
     #tablePreview { margin-top: 20px; border-collapse: collapse; width: 100%; }
     #tablePreview th, #tablePreview td { border: 1px solid #ccc; padding: 8px; text-align: left; }
     #tablePreview th { background: #f0f0f0; }
     a { display: block; margin: 5px 0; }
-    .key { color: #9cdcfe; }
-    .string { color: #ce9178; }
-    .number { color: #b5cea8; }
-    .boolean { color: #569cd6; }
-    .null { color: #808080; }
   </style>
 </head>
 <body>
   <h1>Data Integration App</h1>
-  <p>Controle o pipeline, baixe e visualize os arquivos gerados.</p>
+  <p>Digite o link da API e controle o pipeline:</p>
 
+  <!-- Campo para inserir a URL da API -->
+  <input id="apiUrl" type="text" placeholder="https://meu-servidor:3000" value="http://localhost:3000" />
+  <button onclick="setApiBase()">Usar API</button>
+
+  <br><br>
   <button onclick="runPipeline()">Executar Pipeline</button>
   <button onclick="listFiles()">Listar Arquivos Exportados</button>
 
@@ -43,15 +34,17 @@
   <table id="tablePreview"></table>
 
   <script>
-    const API_BASE = window.location.origin;
+    let API_BASE = document.getElementById("apiUrl").value;
+
+    function setApiBase() {
+      API_BASE = document.getElementById("apiUrl").value;
+      document.getElementById("log").textContent = "API configurada para: " + API_BASE;
+    }
 
     async function runPipeline() {
       document.getElementById("log").textContent = "Executando pipeline...";
       try {
-        const res = await fetch(`${API_BASE}/run`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        });
+        const res = await fetch(`${API_BASE}/run`, { method: "POST", headers: { "Content-Type": "application/json" } });
         const data = await res.json();
         document.getElementById("log").textContent = JSON.stringify(data, null, 2);
         listFiles();
@@ -93,21 +86,15 @@
     }
 
     async function previewJSON(filename) {
-  try {
-    const res = await fetch(`${API_BASE}/files/${filename}`);
-    const text = await res.text();
-    const json = JSON.parse(text);
-
-    // 👇 gera string com indentação de 2 espaços
-    const formatted = JSON.stringify(json, null, 2);
-
-    // exibe cada linha embaixo da outra
-    document.getElementById("preview").textContent = formatted;
-  } catch (err) {
-    document.getElementById("preview").textContent = "Erro ao carregar JSON: " + err.message;
-  }
-}
-
+      try {
+        const res = await fetch(`${API_BASE}/files/${filename}`);
+        const text = await res.text();
+        const json = JSON.parse(text);
+        document.getElementById("preview").textContent = JSON.stringify(json, null, 2);
+      } catch (err) {
+        document.getElementById("preview").textContent = "Erro ao carregar JSON: " + err.message;
+      }
+    }
 
     async function previewCSV(filename) {
       try {
@@ -128,18 +115,6 @@
       } catch (err) {
         document.getElementById("tablePreview").textContent = "Erro ao carregar CSV: " + err.message;
       }
-    }
-
-    function syntaxHighlight(json) {
-      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
-        let cls = "number";
-        if (/^"/.test(match)) {
-          if (/:$/.test(match)) cls = "key";
-          else cls = "string";
-        } else if (/true|false/.test(match)) cls = "boolean";
-        else if (/null/.test(match)) cls = "null";
-        return `<span class="${cls}">${match}</span>`;
-      });
     }
   </script>
 </body>

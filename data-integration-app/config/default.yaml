@@ -1,0 +1,16 @@
+pipeline:
+  source:
+    type: http-json
+    config: { }
+    params:
+      url: "https://jsonplaceholder.typicode.com/users"
+  transform:
+    mapping:
+      id: "id"
+      nome: "name"
+      email: "email"
+  destination:
+    type: csv
+    config: { }
+    params:
+      path: "out/dados.csv"
